@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>VideoEngine</title>
+<style>
+  :root {
+    --bg:#080C10;--surface:#0D1117;--surface2:#161B22;--border:#21262D;
+    --orange:#FF6B35;--purple:#7C3AED;--green:#059669;--red:#DC2626;
+    --text:#E8EDF2;--muted:#8B949E;--dim:#484F58;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--text);font-family:'Courier New',monospace;min-height:100vh;padding-bottom:40px}
+  .header{background:linear-gradient(135deg,#0D1117,#161B22);border-bottom:1px solid #FF6B3530;padding:20px 16px 16px}
+  .header-tag{background:var(--orange);color:#000;font-size:9px;font-weight:900;padding:2px 8px;letter-spacing:2px;border-radius:2px;display:inline-block;margin-bottom:8px}
+  .header h1{font-size:22px;font-weight:900;letter-spacing:-.5px;background:linear-gradient(90deg,#fff 0%,#FF6B35 60%,#7C3AED 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+  .header p{color:var(--muted);font-size:11px;margin-top:4px}
+  .content{padding:16px;max-width:600px;margin:0 auto}
+  .status-bar{display:flex;gap:8px;flex-wrap:wrap;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:16px}
+  .status-pill{display:flex;align-items:center;gap:5px;font-size:10px;font-weight:700;letter-spacing:.5px;padding:3px 8px;border-radius:3px}
+  .pill-ok{background:#05966920;color:#34D399;border:1px solid #05966930}
+  .pill-warn{background:#DC262620;color:#F87171;border:1px solid #DC262630}
+  .pill-dot{width:6px;height:6px;border-radius:50%}
+  .dot-ok{background:#34D399}.dot-warn{background:#F87171}
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:16px;margin-bottom:16px}
+  .card-label{font-size:9px;font-weight:700;letter-spacing:3px;color:var(--muted);margin-bottom:12px}
+  .drop-zone{border:2px dashed var(--border);border-radius:6px;padding:32px 16px;text-align:center;cursor:pointer;transition:all .2s;position:relative;overflow:hidden}
+  .drop-zone.has-file{border-color:var(--orange);background:#FF6B3510}
+  .drop-zone input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
+  .drop-icon{font-size:32px;margin-bottom:8px}.drop-text{font-size:12px;color:var(--muted)}
+  .drop-name{font-size:13px;color:var(--orange);font-weight:700;margin-top:4px}
+  label.field-label{display:block;font-size:10px;color:var(--muted);letter-spacing:1px;margin:12px 0 5px}
+  textarea,input[type=text],input[type=password]{width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:inherit;font-size:13px;padding:10px 12px;outline:none;transition:border-color .2s}
+  textarea:focus,input:focus{border-color:var(--orange)}
+  textarea{resize:vertical;min-height:80px;line-height:1.5}
+  .hint{font-size:10px;color:var(--dim);margin-top:4px;line-height:1.4}
+  .btn{width:100%;padding:14px;border-radius:6px;border:none;font-family:inherit;font-size:13px;font-weight:700;letter-spacing:1px;cursor:pointer;transition:all .2s;margin-top:12px}
+  .btn-primary{background:var(--orange);color:#000}
+  .btn-primary:hover{background:#ff8555}
+  .btn-primary:disabled{background:var(--dim);color:var(--border);cursor:not-allowed}
+  .api-toggle{font-size:10px;color:var(--dim);cursor:pointer;margin-top:8px;display:inline-block}
+  .api-section{display:none}.api-section.open{display:block}
+</style>
+</head>
+<body>
+<div class="header">
+  <div class="header-tag">AI ENGINE</div>
+  <h1>VideoEngine</h1>
+  <p>Drop a video · Type what you want · Get it back edited</p>
+</div>
+<div class="content">
+  <div class="status-bar" id="status-bar"><span style="font-size:10px;color:var(--muted)">Checking tools...</span></div>
+  <div class="card">
+    <div class="card-label">▶ NEW EDIT JOB</div>
+    <div class="drop-zone" id="drop-zone">
+      <input type="file" id="video-file" accept=".mp4,.mov">
+      <div class="drop-icon">🎬</div>
+      <div class="drop-text">Tap to select video (.mp4 or .mov)</div>
+      <div class="drop-name" id="file-name-display"></div>
+    </div>
+    <label class="field-label">WHAT DO YOU WANT DONE?</label>
+    <textarea id="prompt-input" placeholder="e.g. Remove all filler words and burn captions for YouTube Shorts."></textarea>
+    <div class="hint">Plain English. Claude will figure out the rest.</div>
+    <span class="api-toggle" onclick="document.getElementById('api-section').classList.toggle('open')">⚙ Set Anthropic API key (optional)</span>
+    <div class="api-section" id="api-section">
+      <label class="field-label">ANTHROPIC API KEY</label>
+      <input type="password" id="api-key" placeholder="sk-ant-...">
+      <div class="hint">Used locally only. Get one at console.anthropic.com</div>
+    </div>
+    <button class="btn btn-primary" id="submit-btn" onclick="submitJob()">🚀 PROCESS VIDEO</button>
+  </div>
+  <div style="font-size:9px;font-weight:700;letter-spacing:3px;color:var(--muted);margin-bottom:12px">▶ JOBS</div>
+  <div id="jobs-list"><div style="text-align:center;padding:32px 0;color:var(--dim);font-size:12px">No jobs yet. Upload a video above.</div></div>
+</div>
+<style>
+  .job{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:14px;margin-bottom:12px;position:relative}
+  .job.s-queued{border-color:var(--border)}
+  .job.s-planning,.job.s-validating{border-color:#7C3AED50}
+  .job.s-processing{border-color:#FF6B3550}
+  .job.s-completed{border-color:#05966950}
+  .job.s-failed{border-color:#DC262650}
+  .job-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+  .job-id{font-size:10px;color:var(--dim)}
+  .badge{font-size:9px;font-weight:700;padding:2px 8px;border-radius:2px;letter-spacing:1px}
+  .b-queued{background:#21262D;color:var(--muted)}
+  .b-planning,.b-validating{background:#7C3AED20;color:#A78BFA;animation:pulse 1.5s infinite}
+  .b-processing{background:#FF6B3520;color:var(--orange);animation:pulse 1.5s infinite}
+  .b-completed{background:#05966920;color:#34D399}
+  .b-failed{background:#DC262620;color:#F87171}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
+  .job-prompt{font-size:12px;color:var(--text);margin-bottom:6px;line-height:1.4}
+  .job-summary{font-size:11px;color:var(--muted);font-style:italic;margin-bottom:8px}
+  .job-step{font-size:10px;color:var(--orange);margin-bottom:6px}
+  .progress-wrap{height:4px;background:var(--border);border-radius:2px;margin:6px 0;overflow:hidden}
+  .progress-fill{height:100%;background:var(--orange);transition:width .5s ease;border-radius:2px}
+  .log-toggle{font-size:10px;color:var(--dim);cursor:pointer;text-decoration:underline;display:inline-block;margin:4px 0}
+  .log{background:#000;border-radius:4px;padding:8px;font-size:10px;color:#34D399;line-height:1.8;max-height:140px;overflow-y:auto;display:none}
+  .log.open{display:block}
+  .log-entry{display:block}
+  .log-warn{color:#FBBF24}.log-error{color:#F87171}
+  .job-error{background:#DC262615;border:1px solid #DC262640;border-radius:4px;padding:8px;font-size:11px;color:#F87171;margin-top:8px;line-height:1.4}
+  .btn-download{display:inline-block;margin-top:10px;background:var(--green);color:#fff;padding:10px 20px;border-radius:6px;font-size:12px;font-weight:700;letter-spacing:1px;text-decoration:none;border:none;cursor:pointer;font-family:inherit}
+</style>
+<script>
+const API = '';
+let openLogs = new Set();
+
+// ── Status bar ────────────────────────────────────────────────────────────────
+async function loadStatus() {
+  try {
+    const s = await fetch(API+'/status').then(r=>r.json());
+    const tools = [['ffmpeg','FFmpeg'],['whisper','Whisper'],['anthropic','Claude API'],['moviepy','MoviePy']];
+    document.getElementById('status-bar').innerHTML = tools.map(([k,label])=>
+      `<span class="status-pill ${s[k]?'pill-ok':'pill-warn'}">
+        <span class="pill-dot ${s[k]?'dot-ok':'dot-warn'}"></span>${label}</span>`
+    ).join('');
+  } catch(e) {
+    document.getElementById('status-bar').innerHTML =
+      '<span style="font-size:10px;color:#F87171">⚠ Server not reachable</span>';
+  }
+}
+
+// ── File picker ───────────────────────────────────────────────────────────────
+document.getElementById('video-file').addEventListener('change', function() {
+  const f = this.files[0];
+  if (f) {
+    document.getElementById('file-name-display').textContent = f.name;
+    document.getElementById('drop-zone').classList.add('has-file');
+  }
+});
+
+// ── Submit ────────────────────────────────────────────────────────────────────
+async function submitJob() {
+  const file   = document.getElementById('video-file').files[0];
+  const prompt = document.getElementById('prompt-input').value.trim();
+  const apiKey = document.getElementById('api-key').value.trim();
+  if (!file)   { alert('Please select a video file first.'); return; }
+  if (!prompt) { alert('Please describe what you want done.'); return; }
+  const btn = document.getElementById('submit-btn');
+  btn.disabled = true; btn.textContent = '⏳ UPLOADING...';
+  const fd = new FormData();
+  fd.append('video', file); fd.append('prompt', prompt);
+  if (apiKey) fd.append('api_key', apiKey);
+  try {
+    const data = await fetch(API+'/upload',{method:'POST',body:fd}).then(r=>r.json());
+    if (data.job_id) {
+      document.getElementById('video-file').value = '';
+      document.getElementById('file-name-display').textContent = '';
+      document.getElementById('drop-zone').classList.remove('has-file');
+      document.getElementById('prompt-input').value = '';
+      btn.textContent = '✓ SUBMITTED';
+      setTimeout(()=>{ btn.disabled=false; btn.textContent='🚀 PROCESS VIDEO'; }, 2000);
+      pollJobs();
+    } else {
+      alert(data.error || 'Upload failed.'); btn.disabled=false; btn.textContent='🚀 PROCESS VIDEO';
+    }
+  } catch(e) {
+    alert('Upload failed. Is the server running?'); btn.disabled=false; btn.textContent='🚀 PROCESS VIDEO';
+  }
+}
+
+// ── Render jobs ───────────────────────────────────────────────────────────────
+function renderJobs(jobs) {
+  const list = document.getElementById('jobs-list');
+  if (!jobs.length) {
+    list.innerHTML = '<div style="text-align:center;padding:32px 0;color:var(--dim);font-size:12px">No jobs yet.</div>';
+    return;
+  }
+  list.innerHTML = [...jobs].reverse().map(j => {
+    const active = ['queued','planning','validating','processing'].includes(j.status);
+    const logOpen = openLogs.has(j.id);
+    const logHtml = (j.logs||[]).map(l => {
+      const cls = l.level==='error'?'log-error':l.level==='warn'?'log-warn':'';
+      const ts = l.timestamp ? l.timestamp.split('T')[1].split('.')[0] : '';
+      return `<span class="log-entry ${cls}">[${ts}] ${l.step}: ${l.message}</span>`;
+    }).join('');
+    const pct = j.progress || 0;
+    return `
+    <div class="job s-${j.status}">
+      <div class="job-header">
+        <span class="job-id">#${j.id} · ${j.video_name||'video'}</span>
+        <span class="badge b-${j.status}">${j.status.toUpperCase()}</span>
+      </div>
+      <div class="job-prompt">"${j.prompt}"</div>
+      ${j.plan?.summary ? `<div class="job-summary">📋 ${j.plan.summary}</div>` : ''}
+      ${j.current_step  ? `<div class="job-step">▶ ${j.current_step}</div>` : ''}
+      ${active ? `<div class="progress-wrap"><div class="progress-fill" style="width:${pct}%"></div></div>` : ''}
+      ${j.error ? `<div class="job-error">❌ ${j.error}</div>` : ''}
+      <span class="log-toggle" onclick="toggleLog('${j.id}')">
+        ${logOpen?'▲ hide':'▼ show'} log (${(j.logs||[]).length})
+      </span>
+      <div class="log ${logOpen?'open':''}" id="log-${j.id}">${logHtml}</div>
+      ${j.status==='completed'&&j.output_filename
+        ? `<a class="btn-download" href="/download/${j.output_filename}" download>⬇ DOWNLOAD VIDEO</a>` : ''}
+    </div>`;
+  }).join('');
+  // Auto-scroll logs that are open
+  document.querySelectorAll('.log.open').forEach(el => { el.scrollTop = el.scrollHeight; });
+}
+
+function toggleLog(id) {
+  openLogs.has(id) ? openLogs.delete(id) : openLogs.add(id);
+  pollJobs();
+}
+
+async function pollJobs() {
+  try {
+    const jobs = await fetch(API+'/jobs').then(r=>r.json());
+    renderJobs(jobs);
+  } catch(e) {}
+}
+
+loadStatus();
+pollJobs();
+setInterval(pollJobs, 2000);
+setInterval(loadStatus, 30000);
+</script>
+</body>
+</html>

@@ -1,0 +1,13 @@
+inputs/
+outputs/
+temp/
+logs/
+jobs/
+__pycache__/
+*.pyc
+*.pyo
+.DS_Store
+*.mp4
+*.mov
+*.srt
+.env
